@@ -48,6 +48,7 @@ If you do not want to alter any settings, you can skip this section. If have iss
 | L   | Change the camera (right)                       
 | Mousewheel Up| Alter the frame delay by +1            
 | Mousewheel Down | Alter the frame delay by -1         
+| Enter | Enter change resolution mode, type using your keyboard, then hit enter to apply (WIDTHxHEIGHT@FPS) (ex: 1920x1080@30)   
 
 ### Notifications
 You may see some notifications when doing actions, or when getting errors. They are pretty self-explanatory, but on some errors, it might be hard to find a cause. Here's the most common one:
