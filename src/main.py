@@ -4,13 +4,20 @@ import cv2
 import time
 from collections import deque
 import datetime
+import string
 deque_size=3
+screenX:int=0
+screenY:int=0
 frames=deque([],deque_size)
 active_camera=0
 motion_disabled:bool=False
+errors=False
+writing:bool=False
+text:str=""
 try:
     capture=cv2.VideoCapture(active_camera)
     capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+    errors=True
 except:
     with open("log.txt","w") as f:
         f.write("ERROR: It does not seem like you have a camera attached to your system.")
@@ -18,7 +25,7 @@ names={"deq":"Frame offset", "cam":"Active Camera"}
 events:list=[] #[{"event":{"started":timestamp,"end":timestamp}}]
 
 def change_camera(direction):
-    global capture, active_camera
+    global capture, active_camera, screenX, screenY
     testing_camera=active_camera
     if(direction=="left"):
         testing_camera-=1
@@ -33,6 +40,9 @@ def change_camera(direction):
         events.append({"event":"cam","end":time.time()+5,"value":f"Failed camera switch #{testing_camera}"})
         return
     events.append({"event":"cam","end":time.time()+2,"value":f"Using camera #{testing_camera}"})
+    screenX=int(capture.get(cv2.CAP_PROP_FRAME_WIDTH))
+    screenY=int(capture.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    cv2.resizeWindow("frame", screenX, screenY)
     capture=test_capture
     active_camera=testing_camera
 
@@ -48,8 +58,12 @@ def change_deque_size(event,x,y,flags,param):
         events.append({"event":"deq","end":time.time()+2,"value":new_size})
         deque_size=new_size
         frames = deque(frames,new_size)
+def apply_resolution() -> None:
+    global screenX, screenY
+    res=text.split("x")
+    screenX=res[0]
+    screenY=res[1]
 def add_info(frame):
-    if(events.__len__()==0): return frame
     p_frame=frame #processed frame
     added_events=0
     for index, event in enumerate(events):
@@ -66,36 +80,84 @@ def add_info(frame):
                              cv2.LINE_AA,
                              False
                 )
+    if writing:
+        (x,y,w,h)=cv2.getWindowImageRect("frame")
+        p_frame=cv2.putText(p_frame,
+            "Enter new camera resolution (ex: 1920x1080)",
+            (round(w/2)-150, round(h/2)-40),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0,0,0),
+            1,
+            cv2.LINE_AA,
+            False,
+        )
+        p_frame=cv2.rectangle(p_frame,
+                              (round(w/2)-100, round(h/2)-20),
+                              (round(w/2)+100, round(h/2)+20),
+                              (0,0,0),-1)
+        p_frame=cv2.putText(p_frame,
+                            text,
+                            (round(w/2)-100, round(h/2)+10),
+                            cv2.FONT_HERSHEY_SIMPLEX,
+                            1,
+                            (255,255,255),
+                            1,
+                            cv2.LINE_AA,
+                            False,
+        )
     return p_frame
 def process_frames(frame):
     if(frames.__len__()!=frames.maxlen): return frame
     if(not motion_disabled):
         opacity:float=0.5
-        inverted_frame=cv2.bitwise_not(frames[0])
+        print(screenX,screenY)
+        p_frame=cv2.resize(frames[0],(screenX,screenY))
+        inverted_frame=cv2.bitwise_not(p_frame)
         frame=(cv2.addWeighted(inverted_frame,opacity,frame,1-opacity,0))
     return add_info(frame)
 
 cv2.namedWindow("frame")
 cv2.setMouseCallback("frame",change_deque_size)
-
 if __name__ == "__main__":
-    
+    (_,_,w,h)=cv2.getWindowImageRect("frame")
+    screenX=w
+    screenY=h
     while True:
+        (_,_,w,h)=cv2.getWindowImageRect("frame")
         ret, frame = capture.read()
+        if(screenX!=w or screenY!=h):
+            temp_capture=capture
+            temp_capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(screenX))
+            temp_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(screenY))
+            screenX=w
+            screenY=h
+            
         n=datetime.datetime.now()
-        cv2.setWindowTitle("frame",f'Motion extraction enabled: {str(motion_disabled).lower()} camera id: {active_camera} frame delay: {deque_size} @ {n.day}/{n.month}/{n.year} {n.hour}:{n.minute}:{n.second}')
+        cv2.setWindowTitle("frame",f'Motion extraction enabled: {str(not motion_disabled).lower()} camera id: {active_camera} frame delay: {deque_size} @ {n.day}/{n.month}/{n.year} {n.hour}:{n.minute}:{n.second} Errors: {errors}')
         cv2.imshow("frame" ,process_frames(frame))
         frames.append(frame)
         key = cv2.waitKey(1) & 0xFF
-        if key == 27:
-            events=[]
-        if key==ord("q"):
-            break
-        if key==ord("k"):
-            change_camera("left")
-        if key==ord("l"):
-            change_camera("right")
-        if key==ord("h"):
-            motion_disabled=not motion_disabled
+        if key==13:
+            writing=not writing
+        if(not writing):
+            if(text!=""):
+                apply_resolution()
+            if key==27:
+                events=[]
+            if key==ord("q"):
+                break
+            if key==ord("k"):
+                change_camera("left")
+            if key==ord("l"):
+                change_camera("right")
+            if key==ord("h"):
+                motion_disabled=not motion_disabled
+        else: 
+            for char in string.ascii_lowercase + string.digits:
+                if(key==ord(char)):
+                    text+=char
+            if(key==8):
+                text = text[:-1]
     capture.release()
     cv2.destroyAllWindows()
