@@ -8,8 +8,12 @@ deque_size=3
 frames=deque([],deque_size)
 active_camera=0
 motion_disabled:bool=False
-capture=cv2.VideoCapture(active_camera)
-capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+try:
+    capture=cv2.VideoCapture(active_camera)
+    capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
+except:
+    with open("log.txt","w") as f:
+        f.write("ERROR: It does not seem like you have a camera attached to your system.")
 names={"deq":"Frame offset", "cam":"Active Camera"}
 events:list=[] #[{"event":{"started":timestamp,"end":timestamp}}]
 
@@ -26,7 +30,7 @@ def change_camera(direction):
         assert test_capture.get(cv2.CAP_PROP_FRAME_HEIGHT)>0
     except Exception as e:
         print(e)
-        events.append({"event":"cam","end":time.time()+5,"value":f"Failed camer switch #{testing_camera}"})
+        events.append({"event":"cam","end":time.time()+5,"value":f"Failed camera switch #{testing_camera}"})
         return
     events.append({"event":"cam","end":time.time()+2,"value":f"Using camera #{testing_camera}"})
     capture=test_capture
