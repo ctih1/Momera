@@ -11,14 +11,12 @@ screenY:int=0
 frames=deque([],deque_size)
 active_camera=0
 motion_disabled:bool=False
-errors=False
 temp_capture=None
 writing:bool=False
 text:str=""
 try:
     capture=cv2.VideoCapture(active_camera,cv2.CAP_ANY)
     capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
-    errors=True
 except:
     with open("log.txt","w") as f:
         f.write("ERROR: It does not seem like you have a camera attached to your system.")
