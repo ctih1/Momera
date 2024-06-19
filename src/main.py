@@ -12,16 +12,17 @@ frames=deque([],deque_size)
 active_camera=0
 motion_disabled:bool=False
 errors=False
+temp_capture=None
 writing:bool=False
 text:str=""
 try:
-    capture=cv2.VideoCapture(active_camera)
+    capture=cv2.VideoCapture(active_camera,cv2.CAP_ANY)
     capture.set(cv2.CAP_PROP_AUTO_EXPOSURE, 3)
     errors=True
 except:
     with open("log.txt","w") as f:
         f.write("ERROR: It does not seem like you have a camera attached to your system.")
-names={"deq":"Frame offset", "cam":"Active Camera"}
+names={"deq":"Frame offset", "cam":"Active Camera", "res":"Resolution"}
 events:list=[] #[{"event":{"started":timestamp,"end":timestamp}}]
 
 def change_camera(direction):
@@ -59,10 +60,30 @@ def change_deque_size(event,x,y,flags,param):
         deque_size=new_size
         frames = deque(frames,new_size)
 def apply_resolution() -> None:
-    global screenX, screenY
-    res=text.split("x")
+    global screenX, screenY,frames,capture
+    resl=text.split("@")
+    res=resl[0].split("x")
+    if(len(res)!=2):
+        events.append({"event":"res","end":time.time()+5,"value":"Invalid resolution"})
+        return
+    fps=capture.get(cv2.CAP_PROP_FPS)
+    if("@" in text):
+        fps=resl[1]
     screenX=res[0]
     screenY=res[1]
+    frames=deque([],deque_size)
+    capture.release()
+    capture=cv2.VideoCapture(active_camera)
+    try:
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(screenX))
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(screenY))
+        capture.set(cv2.CAP_PROP_FPS, int(fps))
+    except:
+        events.append({"event":"res","end":time.time()+5,"value":"Resolution not supported"})
+        capture.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        capture.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        return
+    
 def add_info(frame):
     p_frame=frame #processed frame
     added_events=0
@@ -83,7 +104,7 @@ def add_info(frame):
     if writing:
         (x,y,w,h)=cv2.getWindowImageRect("frame")
         p_frame=cv2.putText(p_frame,
-            "Enter new camera resolution (ex: 1920x1080)",
+            "Enter new camera resolution (ex: 1920x1080@60)",
             (round(w/2)-150, round(h/2)-40),
             cv2.FONT_HERSHEY_SIMPLEX,
             0.5,
@@ -111,9 +132,7 @@ def process_frames(frame):
     if(frames.__len__()!=frames.maxlen): return frame
     if(not motion_disabled):
         opacity:float=0.5
-        print(screenX,screenY)
-        p_frame=cv2.resize(frames[0],(screenX,screenY))
-        inverted_frame=cv2.bitwise_not(p_frame)
+        inverted_frame=cv2.bitwise_not(frames[0])
         frame=(cv2.addWeighted(inverted_frame,opacity,frame,1-opacity,0))
     return add_info(frame)
 
@@ -124,17 +143,9 @@ if __name__ == "__main__":
     screenX=w
     screenY=h
     while True:
-        (_,_,w,h)=cv2.getWindowImageRect("frame")
         ret, frame = capture.read()
-        if(screenX!=w or screenY!=h):
-            temp_capture=capture
-            temp_capture.set(cv2.CAP_PROP_FRAME_WIDTH, int(screenX))
-            temp_capture.set(cv2.CAP_PROP_FRAME_HEIGHT, int(screenY))
-            screenX=w
-            screenY=h
-            
         n=datetime.datetime.now()
-        cv2.setWindowTitle("frame",f'Motion extraction enabled: {str(not motion_disabled).lower()} camera id: {active_camera} frame delay: {deque_size} @ {n.day}/{n.month}/{n.year} {n.hour}:{n.minute}:{n.second} Errors: {errors}')
+        cv2.setWindowTitle("frame",f'Motion extraction enabled: {str(not motion_disabled).lower()} camera id: {active_camera} frame delay: {deque_size} @ {n.day}/{n.month}/{n.year} {n.hour}:{n.minute}:{n.second}')
         cv2.imshow("frame" ,process_frames(frame))
         frames.append(frame)
         key = cv2.waitKey(1) & 0xFF
@@ -143,6 +154,7 @@ if __name__ == "__main__":
         if(not writing):
             if(text!=""):
                 apply_resolution()
+                text=""
             if key==27:
                 events=[]
             if key==ord("q"):
@@ -154,7 +166,7 @@ if __name__ == "__main__":
             if key==ord("h"):
                 motion_disabled=not motion_disabled
         else: 
-            for char in string.ascii_lowercase + string.digits:
+            for char in string.ascii_lowercase + string.digits + "@":
                 if(key==ord(char)):
                     text+=char
             if(key==8):
