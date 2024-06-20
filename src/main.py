@@ -5,13 +5,13 @@ import time
 from collections import deque
 import datetime
 import string
-deque_size=3
+deque_size:int=3
 screenX:int=0
 screenY:int=0
-frames=deque([],deque_size)
-active_camera=0
+frames:deque=deque([],deque_size)
+active_camera:int=0
 motion_disabled:bool=False
-temp_capture=None
+temp_capture:bool=None
 writing:bool=False
 text:str=""
 try:
@@ -141,6 +141,7 @@ if __name__ == "__main__":
     screenX=w
     screenY=h
     while True:
+        if(not capture.isOpened()): change_camera("right")
         ret, frame = capture.read()
         n=datetime.datetime.now()
         cv2.setWindowTitle("frame",f'Motion extraction enabled: {str(not motion_disabled).lower()} camera id: {active_camera} frame delay: {deque_size} @ {n.day}/{n.month}/{n.year} {n.hour}:{n.minute}:{n.second}')
