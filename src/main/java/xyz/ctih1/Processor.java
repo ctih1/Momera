@@ -17,16 +17,18 @@ public class Processor {
     public Processor() {
     }
 
-    public void toggleMotion() {
+    public boolean toggleMotion() {
         motionDisabled=!motionDisabled;
+        return motionDisabled;
     }
 
-    public void changeFrameDelay(Direction direction ) {
-        if (direction == Direction.DOWN||maxItems>1) {
+    public int changeFrameDelay(Direction direction ) {
+        if (direction == Direction.DOWN && maxItems>1) {
             maxItems--;
         } else if (direction == Direction.UP) {
             maxItems++;
         }
+        return maxItems;
     }
     public void appendFrame(Mat frame) {
         if(frames.size()>=maxItems) {
@@ -35,7 +37,7 @@ public class Processor {
         frames.add(frame.clone());
     }
     public Mat motion(Mat currentFrame) {
-        if(frames.size()!=maxItems || motionDisabled) { return currentFrame; }
+        if(frames.size()==0 || motionDisabled) { return currentFrame; }
         assert(currentFrame!=null);
         invertedFrame=currentFrame.clone();
         motionFrame=currentFrame.clone();

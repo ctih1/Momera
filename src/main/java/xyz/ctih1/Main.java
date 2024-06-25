@@ -8,11 +8,7 @@ public class Main {
         EventQueue.invokeLater(() -> {
             final Camera camera = new Camera();
             new Thread(() -> {
-                try {
-                    camera.startCamera(0);
-                } catch (FrameGrabber.Exception | InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
+                camera.startCamera(0);
             }).start();
         });
 
